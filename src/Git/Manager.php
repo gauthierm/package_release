@@ -54,6 +54,21 @@ class Manager
     }
 
     /**
+     * Checks if the current directory is an NPM package
+     *
+     * @return boolean true if the current directory is an NPM package,
+     *                 otherwise false.
+     */
+    public function isNpmPackage(): bool
+    {
+        return (
+            !$this->isComposerPackage()
+            && file_exists('package.json')
+            && is_readable('package.json')
+        );
+    }
+
+    /**
      * Gets the name of the current git repository
      *
      * @return string the name of the current git repository or null if it
@@ -222,7 +237,7 @@ class Manager
      * @param string $tag    the name of the tag to push.
      * @param string $remote the name of the remote to push to.
      *
-     * @return true on success, false on failure.
+     * @return boolean true on success, false on failure.
      */
     public function pushTagToRemote(string $tag, string $remote): bool
     {
@@ -247,11 +262,90 @@ class Manager
     }
 
     /**
+     * Pushes a local branch to a remote branch
+     *
+     * @param string $source_branch      the name of the branch to push from.
+     * @param string $destination_branch the name of the branch to push to.
+     * @param string $remote             the name of the remote to push to.
+     *
+     * @return boolean true on success, false on failure.
+     */
+    public function pushBranchToRemote(
+        string $source_branch,
+        string $destination_branch,
+        string $remote
+    ): bool {
+        $escaped_source = escapeshellarg($source_branch);
+        $escaped_destination = escapeshellarg($destination_branch);
+        $escaped_remote = escapeshellarg($remote);
+
+        $command = sprintf(
+            'git push -q %s %s:%s 2>&1',
+            $escaped_remote,
+            $escaped_source,
+            $escaped_destination
+        );
+
+        $output = array();
+        $return = 0;
+        exec($command, $output, $return);
+
+        if ($return !== 0) {
+            $this->last_error = $output;
+        }
+
+        return ($return === 0);
+    }
+
+    /**
+     * Exports a tag to a local directory
+     *
+     * @param string $tag       the name of the tag to export.
+     * @param string $directory the directory in which to export the tag.
+     *
+     * @return boolean true on success, false on failure.
+     */
+    public function exportTag(string $tag, string $directory): bool
+    {
+        $directory = rtrim($directory, '/');
+        $escaped_tag = escapeshellarg($tag);
+        $escaped_directory = escapeshellarg($directory);
+
+        if (file_exists($directory)) {
+            $this->last_error = 'Directory ' . $directory . ' must not exist.';
+            return false;
+        }
+
+        if (!mkdir($directory, 0777, true)) {
+            $this->last_error = 'Could not create export directory: '
+                . $directory;
+
+            return false;
+        }
+
+        $command = 'git-archive '
+            . '--format=tar '
+            . '--prefix=' . $escaped_directory . '/ '
+            . $escaped_tag
+            . ' | tar -xf -';
+
+        $output = array();
+        $return = 0;
+        exec($command, $output, $return);
+
+        if ($return !== 0) {
+            $this->last_error = $output;
+        }
+
+        return ($return === 0);
+    }
+
+    /**
      * Deletes a branch
      *
      * @param string $branch the name of the branch to delete.
      *
-     * @return true on success, false on failure.
+     * @return boolean true on success, false on failure.
      */
     public function deleteBranch(string $branch): bool
     {
@@ -326,6 +420,31 @@ class Manager
         }
 
         return $tag;
+    }
+
+    /**
+     * Recursively removes a directory
+     *
+     * @param string $directory the directory to remove.
+     *
+     * @return boolean true on success, false on failure.
+     */
+    public function removeDirectory(string $directory): bool
+    {
+        $directory = rtrim($directory, '/');
+        $escaped_directory = escapeshellarg($directory);
+
+        $command = 'rm -rf ' . $escaped_directory;
+
+        $output = array();
+        $return = 0;
+        exec($command, $output, $return);
+
+        if ($return !== 0) {
+            $this->last_error = $output;
+        }
+
+        return ($return === 0);
     }
 
     /**
