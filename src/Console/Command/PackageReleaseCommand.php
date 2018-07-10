@@ -321,7 +321,6 @@ class PackageReleaseCommand extends Command
                         OutputFormatter::escape($release_branch),
                         OutputFormatter::escape($remote),
                         OutputFormatter::escape($destination_branch)
-
                     )
                 );
             } else {
@@ -372,7 +371,6 @@ class PackageReleaseCommand extends Command
                         'exported release tag to '
                         . '<variable>%s</variable>',
                         OutputFormatter::escape($export_directory)
-
                     )
                 );
             } else {
@@ -399,7 +397,6 @@ class PackageReleaseCommand extends Command
                     sprintf(
                         'removed export directory <variable>%s</variable>',
                         OutputFormatter::escape($export_directory)
-
                     )
                 );
             } else {
