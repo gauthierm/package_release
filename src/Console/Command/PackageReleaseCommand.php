@@ -422,7 +422,7 @@ class PackageReleaseCommand extends Command
         if ($this->isNpmPackage()) {
             $output->writeln([
                 'The NPM registry is updated and the release will appear at '
-                . '<link>https://npmrepository/</link>.',
+                . '<link>http://npmrepository/</link>.',
                 ''
             ]);
         } else {
