@@ -16,6 +16,7 @@ use Silverorange\PackageRelease\Console\Formatter\Style;
 use Silverorange\PackageRelease\Console\Formatter\LineWrapper;
 use Silverorange\PackageRelease\Console\Formatter\OutputFormatter as PackageReleaseOutputFormatter;
 use Silverorange\PackageRelease\Console\Question\ConfirmationPrompt;
+use Silverorange\PackageRelease\Tool\Npm;
 
 /**
  * @package   PackageRelease
@@ -61,12 +62,14 @@ class PackageReleaseCommand extends Command
             ->setName('package-release')
 
             // the short description shown while running "php bin/console list"
-            ->setDescription('Releases new versions of composer packages.')
+            ->setDescription(
+                'Releases new versions of Composer or NPM packages.'
+            )
 
             // the full command description shown when running the command with
             // the "--help" option
             ->setHelp(
-                'This tool is used to release new versions of composer '
+                'This tool is used to release new versions of Composer or NPM '
                 . 'packages. It uses Semver 2.0 to automatically pick the '
                 . 'next version number and tag the release on GitHub.'
             )
@@ -122,11 +125,14 @@ class PackageReleaseCommand extends Command
             return 1;
         }
 
-        if (!$this->manager->isComposerPackage()) {
+        if (!$this->manager->isComposerPackage()
+            && !$this->manager->isNpmPackage()
+        ) {
             $output->writeln([
-                'Could not find <variable>composer.json</variable>. Make '
-                . 'sure you are in the project '
-                . 'root and the project is a composer package.',
+                'Could not find <variable>composer.json</variable> or '
+                . '<variable>package.json</variable>. Make sure you are in '
+                . ' the project root and the project is a Composer or '
+                . ' NPM package.',
                 '',
             ]);
             return 1;
@@ -234,6 +240,13 @@ class PackageReleaseCommand extends Command
             );
         }
 
+        // Update package.json and commit to current branch.
+        if ($this->manager->isNpmPackage()) {
+            if (!Npm::version($output, $next_version)) {
+                return 1;
+            }
+        }
+
         $message = $input->getOption('message');
         if ($message === '') {
             $message = sprintf(
@@ -289,6 +302,43 @@ class PackageReleaseCommand extends Command
             return 1;
         }
 
+        if ($this->manager->isNpmPackage()) {
+            $this->startCommand($output);
+
+            $destination_branch = 'master';
+            $success = $this->manager->pushBranchToRemote(
+                $release_branch,
+                $destination_branch,
+                $remote
+            );
+
+            if ($success) {
+                $this->handleSuccess(
+                    $output,
+                    sprintf(
+                        'pushed release branch <variable>%s</variable> to '
+                        . '<variable>%s:%s</variable>',
+                        OutputFormatter::escape($release_branch),
+                        OutputFormatter::escape($remote),
+                        OutputFormatter::escape($destination_branch)
+                    )
+                );
+            } else {
+                $this->handleError(
+                    $output,
+                    sprintf(
+                        'could not push release branch <variable>%s</variable> '
+                        . 'to <variable>%s:%s</variable>',
+                        OutputFormatter::escape($release_branch),
+                        OutputFormatter::escape($remote),
+                        OutputFormatter::escape($destination_branch)
+                    ),
+                    $this->manager->getLastError()
+                );
+                return 1;
+            }
+        }
+
         $this->startCommand($output);
         if ($this->manager->deleteBranch($release_branch)) {
             $this->handleSuccess(
@@ -310,15 +360,79 @@ class PackageReleaseCommand extends Command
             return 1;
         }
 
+        if ($this->manager->isNpmPackage()) {
+            $this->startCommand($output);
+
+            $export_directory = $release_branch . '-export';
+            if ($this->manager->exportTag($next_version, $export_directory)) {
+                $this->handleSuccess(
+                    $output,
+                    sprintf(
+                        'exported release tag to '
+                        . '<variable>%s</variable>',
+                        OutputFormatter::escape($export_directory)
+                    )
+                );
+            } else {
+                $this->handleError(
+                    $output,
+                    sprintf(
+                        'could not export release tag to '
+                        . '<variable>%s</variable>',
+                        OutputFormatter::escape($export_directory)
+                    ),
+                    $this->manager->getLastError()
+                );
+                return 1;
+            }
+
+            if (!Npm::publish($output, export_directory)) {
+                return 1;
+            }
+
+            $this->startCommand($output);
+            if ($this->manager->removeDirectory($export_directory)) {
+                $this->handleSuccess(
+                    $output,
+                    sprintf(
+                        'removed export directory <variable>%s</variable>',
+                        OutputFormatter::escape($export_directory)
+                    )
+                );
+            } else {
+                $this->handleError(
+                    $output,
+                    sprintf(
+                        'could not remove export directory '
+                        . '<variable>%s</variable>',
+                        OutputFormatter::escape($export_directory)
+                    ),
+                    $this->manager->getLastError()
+                );
+                return 1;
+            }
+        }
+
         $output->writeln([
             '',
             '<info>Success!</info>',
             '',
-            'The composer repository will automatically update. It may take a '
-            . 'few minutes for the release to appear at '
-            . '<link>https://composer/</link>.',
-            ''
         ]);
+
+        if ($this->isNpmPackage()) {
+            $output->writeln([
+                'The NPM registry is updated and the release will appear at '
+                . '<link>http://npmrepository/</link>.',
+                ''
+            ]);
+        } else {
+            $output->writeln([
+                'The composer repository will automatically update. It may '
+                . 'take a few minutes for the release to appear at '
+                . '<link>https://composer.silverorange.com/</link>.',
+                ''
+            ]);
+        }
     }
 
     protected function validateInputOptions(

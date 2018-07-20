@@ -41,7 +41,44 @@ class Npm
             'built project',
             'failed to build project'
         ))->run();
-        static::start($output, 'building project');
+    }
+
+    public static function version(
+        OutputInterface $output,
+        string $version
+    ): bool {
+        $command = 'npm '
+            . '--no-git-tag-version '
+            . '--quiet '
+            . 'version '
+            . escapeshellarg($version) . ' '
+            . '--message "Prepare release of %s"';
+
+        return (new ProcessRunner(
+            $output,
+            $command,
+            'setting package version',
+            'set package version',
+            'failed to set package version'
+        ))->run();
+    }
+
+    public static function publish(
+        OutputInterface $output,
+        string $directory
+    ): bool {
+        $command = 'npm '
+        . 'publish '
+        . '--quiet '
+        . escapeshellarg($directory);
+
+        return (new ProcessRunner(
+            $output,
+            $command,
+            'publishing package',
+            'published package',
+            'failed to publish package'
+        ))->run();
     }
 
     protected static function isYarn(): bool
