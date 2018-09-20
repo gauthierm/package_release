@@ -245,14 +245,36 @@ class PackageReleaseCommand extends Command
             if (!Npm::version($output, $next_version)) {
                 return 1;
             }
+
+            $this->startCommand($output);
+            $success = $this->manager->commitFile(
+                'package.json',
+                sprintf('Prepare release of %s', $next_version)
+            );
+            if ($success) {
+                $this->handleSuccess(
+                    $output,
+                    sprintf(
+                        'committed package.json version',
+                        OutputFormatter::escape($message)
+                    )
+                );
+            } else {
+                $this->handleError(
+                    $output,
+                    sprintf(
+                        'failed to commit package.json version',
+                        OutputFormatter::escape($next_version)
+                    ),
+                    $this->manager->getLastError()
+                );
+                return 1;
+            }
         }
 
         $message = $input->getOption('message');
-        if ($message === '') {
-            $message = sprintf(
-                'Release version %s.',
-                $next_version
-            );
+        if ($message == '') {
+            $message = sprintf('Release version %s.', $next_version);
         }
         $this->startCommand($output);
         $success = $this->manager->createReleaseTag(
@@ -329,7 +351,7 @@ class PackageReleaseCommand extends Command
                     sprintf(
                         'could not push release branch <variable>%s</variable> '
                         . 'to <variable>%s:%s</variable>',
-                        OutputFormatter::escape($release_branch),
+                         OutputFormatter::escape($release_branch),
                         OutputFormatter::escape($remote),
                         OutputFormatter::escape($destination_branch)
                     ),
@@ -386,9 +408,9 @@ class PackageReleaseCommand extends Command
                 return 1;
             }
 
-            if (!Npm::publish($output, export_directory)) {
-                return 1;
-            }
+           // if (!Npm::publish($output, export_directory)) {
+           //     return 1;
+           // }
 
             $this->startCommand($output);
             if ($this->manager->removeDirectory($export_directory)) {

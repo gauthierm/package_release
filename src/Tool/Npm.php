@@ -48,11 +48,11 @@ class Npm
         string $version
     ): bool {
         $command = 'npm '
+            . '--no-shrinkwrap'
             . '--no-git-tag-version '
             . '--quiet '
             . 'version '
-            . escapeshellarg($version) . ' '
-            . '--message "Prepare release of %s"';
+            . escapeshellarg($version);
 
         return (new ProcessRunner(
             $output,

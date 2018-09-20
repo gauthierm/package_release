@@ -202,6 +202,85 @@ class Manager
     }
 
     /**
+     * Commits a file to the current branch
+     *
+     * @param string $filename the file to commit.
+     * @param string $message  the commit message to use.
+     *
+     * @return boolean true on success, otherwise false.
+     */
+    public function commitFile(
+        string $filename,
+        string $message
+    ) {
+        $escaped_filename = escapeshellarg($filename);
+        $escaped_message = escapeshellarg($message);
+
+        $fetch_command = sprintf(
+            'git commit %s -m %s 2>&1',
+            $escaped_filename,
+            $escaped_message
+        );
+
+        $output = array();
+        $return = 0;
+        exec($fetch_command, $output, $return);
+
+        if ($return !== 0) {
+            $this->last_error = $output;
+            $release = null;
+        }
+
+        return $release;
+    }
+
+    /**
+     * Merges a branch from a remote repository into the current branch
+     *
+     * @param string $branch the branch to merge.
+     * @param string $remote the remote repository name.
+     *
+     * @return boolean true on success, otherwise false.
+     */
+    public function mergeRemoteBranch(string $branch, string $remote): bool
+    {
+        $escaped_remote = escapeshellarg($remote);
+        $escaped_branch = escapeshellarg($branch);
+
+        // Fetch only the branch from the remote.
+        $fetch_command = sprintf(
+            'git fetch -q %1$s %2$s:refs/remotes/%1$s/%2$s 2>&1',
+            $escaped_remote,
+            $escaped_branch
+        );
+
+        $output = array();
+        $return = 0;
+        exec($fetch_command, $output, $return);
+        if ($return !== 0) {
+            $this->last_error = $output;
+            return false;
+        }
+
+        $merge_command = sprintf(
+            'git merge -q -b %s/%s 2>&1',
+            $escaped_remote,
+            $escaped_branch
+        );
+
+        $output = array();
+        $return = 0;
+        exec($merge_command, $output, $return);
+
+        if ($return !== 0) {
+            $this->last_error = $output;
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Creates a release tag from the current branch
      *
      * @param string $version the release version.
@@ -252,7 +331,7 @@ class Manager
 
         $output = array();
         $return = 0;
-        exec($command, $output, $return);
+       // exec($command, $output, $return);
 
         if ($return !== 0) {
             $this->last_error = $output;
@@ -288,7 +367,7 @@ class Manager
 
         $output = array();
         $return = 0;
-        exec($command, $output, $return);
+       // exec($command, $output, $return);
 
         if ($return !== 0) {
             $this->last_error = $output;
