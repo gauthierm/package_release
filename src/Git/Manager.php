@@ -237,7 +237,7 @@ class Manager
 
         $output = array();
         $return = 0;
-        exec($command, $output, $return);
+        // exec($command, $output, $return);
 
         if ($return !== 0) {
             $this->last_error = $output;
